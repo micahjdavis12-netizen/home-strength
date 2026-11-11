@@ -120,6 +120,11 @@ details[open]>summary .chev{transform:rotate(90deg)}
 .srow.head>*{text-align:center}
 .srow.head>:nth-child(2){text-align:left}
 .srow.done{background:var(--accent-soft)}
+.srow.timed{grid-template-columns:30px minmax(0,1.2fr) minmax(0,.6fr) minmax(0,1fr) 40px 40px;gap:5px}
+.clock{width:38px;height:38px;border-radius:12px;border:0;background:var(--select-soft);display:grid;place-items:center;margin:0 auto;color:var(--ink);transition:transform .14s cubic-bezier(.22,1,.36,1),background .18s}
+.clock:active{transform:scale(.9)}
+.clock.on{background:var(--ink);color:var(--surface)}
+.srow.done .clock{color:var(--faint)}
 .snum{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:14px;background:var(--select-soft);margin:0 auto;font-variant-numeric:tabular-nums}
 .prev{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .srow input{width:100%;min-width:0;height:38px;border:0;border-radius:10px;background:var(--fill);text-align:center;font-size:16px;font-weight:650;font-variant-numeric:tabular-nums;padding:0 4px}
@@ -188,10 +193,10 @@ select.add{width:100%;height:44px;border:0;border-radius:14px;background:var(--f
 <div class="glow" aria-hidden="true"></div>
 <main class="wrap" id="app"></main>
 <div class="restbar glassbtn" id="rest" hidden>
-  <div class="lbl">Rest<b id="restTime">1:30</b></div>
+  <div class="lbl"><span id="timerLbl">Rest</span><b id="restTime">1:00</b></div>
   <button class="btn small" type="button" data-act="rest-adj" data-v="-15">−15</button>
   <button class="btn small" type="button" data-act="rest-adj" data-v="15">+15</button>
-  <button class="btn small primary" type="button" data-act="rest-skip">Skip</button>
+  <button class="btn small primary" type="button" data-act="rest-skip" id="timerSkip">Skip</button>
   <div class="prog" id="restProg"></div>
 </div>
 <button class="restfab" id="restFab" type="button" data-act="rest-start" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg>Rest <span id="restFabTime">1:00</span></button>
@@ -393,11 +398,12 @@ function load(){try{const raw=localStorage.getItem(KEY);S=raw?JSON.parse(raw):fr
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 load();
 
-let view=S.active?"workout":"plan";
+let view="workout";
 const app=document.getElementById("app"), tabs=document.getElementById("tabs");
 const todayIdx=(new Date().getDay()+6)%7;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const chev='<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+const clockSvg='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg>';
 const checkSvg='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const unitLabel=k=>UNIT[k]==="sec"?"Sec":UNIT[k]==="steps"?"Steps":"Reps";
 function fmtTime(s){s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+":"+String(m).padStart(2,"0"):m)+":"+String(x).padStart(2,"0");}
@@ -416,19 +422,24 @@ function renderTabs(){
 }
 function renderPlan(){
   let h=`<header class="top"><div><h1>Home Strength</h1><p class="sub">5 days · 30 min · dumbbells and kettlebell</p></div></header>`;
-  S.routines.forEach((r,i)=>{
-    const today=i===todayIdx;
-    if(r.rest&&!r.ex.length){h+=`<section class="card restcard${today?" is-today":""}"><span class="tile">${r.d}</span><div class="grow"><div class="rtitle">${esc(r.title)}${today?'<span class="todaytag">Today</span>':""}</div><div class="rmeta">Recover. A short walk is fine.</div></div><button class="btn small" type="button" data-act="edit" data-v="${i}">Edit</button></section>`;return;}
-    h+=`<section class="card routine${today?" is-today":""}" id="day-${r.d}"><div class="rhead"><span class="tile">${r.d}</span><div class="grow"><div class="rtitle">${esc(r.title)}${today?'<span class="todaytag">Today</span>':""}</div><div class="rmeta">${esc(r.focus)}</div></div></div>
-    <ul class="exlist">${r.ex.map(e=>`<li><details><summary><span class="cnt">${e.s} ×</span><span class="nm">${esc(EX[e.k].name)}</span><span class="tg">${esc(e.t)}${UNIT[e.k]==="sec"?" sec":UNIT[e.k]==="steps"?" steps":""}</span>${chev}</summary>${howTo(e.k)}</details></li>`).join("")}</ul>
-    <div class="ractions"><button class="btn ${today?"primary":""}" type="button" data-act="start" data-v="${i}">Start Workout</button><button class="btn" type="button" data-act="edit" data-v="${i}">Edit</button></div></section>`;
-  });
+  S.routines.forEach((r,i)=>{h+=routineCard(r,i);});
   h+=`<p class="note">Your logs are saved on this device. Use Backup in History to move them to another phone.</p>`;
   app.innerHTML=h;
 }
+function routineCard(r,i){
+    let h="";const today=i===todayIdx;
+    if(r.rest&&!r.ex.length){h+=`<section class="card restcard${today?" is-today":""}"><span class="tile">${r.d}</span><div class="grow"><div class="rtitle">${esc(r.title)}${today?'<span class="todaytag">Today</span>':""}</div><div class="rmeta">Recover. A short walk is fine.</div></div><button class="btn small" type="button" data-act="edit" data-v="${i}">Edit</button></section>`;return h;}
+    h+=`<section class="card routine${today?" is-today":""}" id="day-${r.d}"><div class="rhead"><span class="tile">${r.d}</span><div class="grow"><div class="rtitle">${esc(r.title)}${today?'<span class="todaytag">Today</span>':""}</div><div class="rmeta">${esc(r.focus)}</div></div></div>
+    <ul class="exlist">${r.ex.map(e=>`<li><details><summary><span class="cnt">${e.s} ×</span><span class="nm">${esc(EX[e.k].name)}</span><span class="tg">${esc(e.t)}${UNIT[e.k]==="sec"?" sec":UNIT[e.k]==="steps"?" steps":""}</span>${chev}</summary>${howTo(e.k)}</details></li>`).join("")}</ul>
+    <div class="ractions"><button class="btn ${today?"primary":""}" type="button" data-act="start" data-v="${i}">Start Workout</button><button class="btn" type="button" data-act="edit" data-v="${i}">Edit</button></div></section>`;
+    return h;
+}
 function renderWorkout(){
   const w=S.active;
-  if(!w){app.innerHTML=`<header class="top"><h1>Workout</h1></header><div class="card empty">No workout running.<br><br><button class="btn primary" type="button" data-act="start" data-v="${todayIdx}">Start today's workout</button></div>`;return;}
+  if(!w){
+    const r=S.routines[todayIdx];let h=`<header class="top"><div><h1>Today</h1><p class="sub">${new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</p></div></header>`+routineCard(r,todayIdx);
+    if(r.rest&&!r.ex.length){const n=S.routines.findIndex((x,j)=>j>todayIdx&&x.ex.length);const ni=n<0?S.routines.findIndex(x=>x.ex.length):n;if(ni>=0){h+=`<p class="sectionhead">Want to train anyway?</p>`+routineCard(S.routines[ni],ni);}}
+    app.innerHTML=h;return;}
   const {v,n}=volume(w);
   let h=`<div class="wtop"><div class="t"><b>${esc(w.title)}</b><span id="elapsed">${fmtTime((Date.now()-w.start)/1000)}</span></div><button class="btn small ghost danger" type="button" data-act="discard">Discard</button><button class="btn small primary" type="button" data-act="finish">Finish</button></div>
   <div class="stats"><div class="stat"><span>Duration</span><b id="elapsed2">${fmtTime((Date.now()-w.start)/1000)}</b></div><div class="stat"><span>Volume</span><b id="vol">${v.toLocaleString()} lb</b></div><div class="stat"><span>Sets</span><b id="setsDone">${n}</b></div></div>`;
@@ -437,8 +448,8 @@ function renderWorkout(){
     const prev=prevFor(e.k), bw=BW[e.k];
     h+=`<section class="card excard"><div class="exhead"><div class="grow"><div class="exname">${esc(EX[e.k].name)}</div><div class="extarget">Target ${e.sets.length} × ${esc(e.t)}${UNIT[e.k]==="sec"?" sec":UNIT[e.k]==="steps"?" steps":""}</div></div></div>
     <details class="how"><summary>${chev}How to do it</summary>${howTo(e.k)}</details>
-    <div class="sets"><div class="srow head"><span>Set</span><span>Previous</span><span>${bw?"":"lbs"}</span><span>${unitLabel(e.k)}</span><span></span></div>
-    ${e.sets.map((s,si)=>{const p=prev&&prev[si];return `<div class="srow${s.done?" done":""}" data-e="${ei}" data-s="${si}"><span class="snum">${si+1}</span><span class="prev">${setText(e.k,p)}</span>${bw?'<span class="bw">BW</span>':`<input inputmode="decimal" enterkeyhint="next" aria-label="Set ${si+1} weight in pounds" data-f="w" value="${esc(s.w)}" placeholder="${p&&p.w?esc(p.w):"lbs"}">`}<input inputmode="numeric" enterkeyhint="done" aria-label="Set ${si+1} ${unitLabel(e.k)}" data-f="r" value="${esc(s.r)}" placeholder="${p&&p.r?esc(p.r):esc(String(e.t).split(/[–\/ ]/)[0])}"><button class="check" type="button" data-act="check" aria-label="Mark set ${si+1} done" aria-pressed="${!!s.done}">${checkSvg}</button></div>`;}).join("")}
+    <div class="sets"><div class="srow head${UNIT[e.k]==="sec"?" timed":""}"><span>Set</span><span>Previous</span><span>${bw?"":"lbs"}</span><span>${unitLabel(e.k)}</span><span></span>${UNIT[e.k]==="sec"?"<span></span>":""}</div>
+    ${e.sets.map((s,si)=>{const p=prev&&prev[si];const timed=UNIT[e.k]==="sec";return `<div class="srow${s.done?" done":""}${timed?" timed":""}" data-e="${ei}" data-s="${si}"><span class="snum">${si+1}</span><span class="prev">${setText(e.k,p)}</span>${bw?'<span class="bw">BW</span>':`<input inputmode="decimal" enterkeyhint="next" aria-label="Set ${si+1} weight in pounds" data-f="w" value="${esc(s.w)}" placeholder="${p&&p.w?esc(p.w):"lbs"}">`}<input inputmode="numeric" enterkeyhint="done" aria-label="Set ${si+1} ${unitLabel(e.k)}" data-f="r" value="${esc(s.r)}" placeholder="${p&&p.r?esc(p.r):esc(String(e.t).split(/[–\/ ]/)[0])}">${timed?`<button class="clock${work&&work.ei===ei&&work.si===si?" on":""}" type="button" data-act="worktime" aria-label="Start ${esc(String(e.t))} second timer for set ${si+1}">${clockSvg}</button>`:""}<button class="check" type="button" data-act="check" aria-label="Mark set ${si+1} done" aria-pressed="${!!s.done}">${checkSvg}</button></div>`;}).join("")}
     </div><div class="setbtns"><button class="btn small" type="button" data-act="addset" data-v="${ei}">+ Add Set</button>${e.sets.length>1?`<button class="btn small ghost" type="button" data-act="rmset" data-v="${ei}">Remove Set</button>`:""}</div></section>`;
   });
   h+=`<p class="sectionhead">Notes</p><textarea id="notes" placeholder="How did it feel? Anything to change next time?">${esc(w.notes||"")}</textarea>`;
@@ -498,12 +509,15 @@ function finishWorkout(){
   w.dur=Math.round((Date.now()-w.start)/1000);
   S.history.push(w);S.active=null;stopRest();save();view="history";render();window.scrollTo(0,0);toast("Workout saved");
 }
-let restEnd=0,restTotal=0;
-function startRest(){restTotal=S.restSec;restEnd=Date.now()+restTotal*1000;document.getElementById("rest").hidden=false;syncFab();tick();}
-function stopRest(){restEnd=0;document.getElementById("rest").hidden=true;syncFab();}
+let restEnd=0,restTotal=0,mode="rest",work=null,workStart=0;
+function setBar(){document.getElementById("timerLbl").textContent=mode==="work"?"Hold":"Rest";document.getElementById("timerSkip").textContent=mode==="work"?"Done":"Skip";}
+function startWork(ei,si){const e=S.active.ex[ei],s=e.sets[si];const row=document.querySelector(`.srow[data-e="${ei}"][data-s="${si}"]`);const inp=row&&row.querySelector('input[data-f="r"]');const secs=parseInt(s.r||(inp&&inp.placeholder)||String(e.t))||30;mode="work";work={ei,si};workStart=Date.now();restTotal=secs;restEnd=Date.now()+secs*1000;document.querySelectorAll(".clock.on").forEach(c=>c.classList.remove("on"));const c=row&&row.querySelector(".clock");if(c)c.classList.add("on");document.getElementById("rest").hidden=false;setBar();syncFab();tick();}
+function finishWork(){if(!work)return;const {ei,si}=work;const s=S.active.ex[ei].sets[si];const secs=Math.max(1,Math.round((Date.now()-workStart)/1000));s.r=String(Math.min(secs,Math.round(restTotal)));s.done=true;work=null;mode="rest";save();render();startRest();try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}
+function startRest(){mode="rest";work=null;setBar();restTotal=S.restSec;restEnd=Date.now()+restTotal*1000;document.getElementById("rest").hidden=false;syncFab();tick();}
+function stopRest(){restEnd=0;mode="rest";work=null;document.querySelectorAll(".clock.on").forEach(c=>c.classList.remove("on"));document.getElementById("rest").hidden=true;syncFab();}
 function tick(){
   if(S.active){const t=fmtTime((Date.now()-S.active.start)/1000);["elapsed","elapsed2","tabTime"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=t;});}
-  if(restEnd){const left=(restEnd-Date.now())/1000;if(left<=0){stopRest();toast("Rest done. Next set!");try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}else{document.getElementById("restTime").textContent=fmtTime(left);document.getElementById("restProg").style.width=(100*left/restTotal)+"%";}}
+  if(restEnd){const left=(restEnd-Date.now())/1000;if(left<=0){if(mode==="work"){finishWork();toast("Time! Set checked off.");return;}stopRest();toast("Rest done. Next set!");try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}else{document.getElementById("restTime").textContent=fmtTime(left);document.getElementById("restProg").style.width=(100*left/restTotal)+"%";}}
 }
 setInterval(tick,1000);
 function updateStats(){const w=S.active;if(!w)return;const {v,n}=volume(w);const a=document.getElementById("vol"),b=document.getElementById("setsDone");if(a)a.textContent=v.toLocaleString()+" lb";if(b)b.textContent=n;}
@@ -524,6 +538,7 @@ document.addEventListener("click",ev=>{
   else if(act==="sheet-ok"){const f=sheetOk;closeSheet();f&&f();}
   else if(act==="check"){
     const row=b.closest(".srow"),e=S.active.ex[+row.dataset.e],s=e.sets[+row.dataset.s];
+    if(work&&work.ei===+row.dataset.e&&work.si===+row.dataset.s){const secs=Math.max(1,Math.round((Date.now()-workStart)/1000));if(!s.r)s.r=String(secs);const ri=row.querySelector('input[data-f="r"]');if(ri&&!ri.value)ri.value=s.r;stopRest();}
     if(!s.done){row.querySelectorAll("input").forEach(inp=>{if(!inp.value&&inp.placeholder&&/^[\d.]+$/.test(inp.placeholder)){inp.value=inp.placeholder;s[inp.dataset.f]=inp.placeholder;}});}
     s.done=!s.done;row.classList.toggle("done",s.done);b.setAttribute("aria-pressed",s.done);save();updateStats();
     if(s.done)startRest();
@@ -533,7 +548,8 @@ document.addEventListener("click",ev=>{
   else if(act==="finish")confirmSheet("Finish workout?","Your checked sets will be saved to History.","Finish",finishWorkout);
   else if(act==="discard")confirmSheet("Discard workout?","Nothing from this session will be saved.","Discard",()=>{S.active=null;stopRest();save();view="plan";render();},true);
   else if(act==="rest-adj"){if(restEnd){restEnd+=(+v)*1000;restTotal=Math.max(restTotal,(restEnd-Date.now())/1000);tick();}}
-  else if(act==="rest-skip")stopRest();
+  else if(act==="rest-skip"){if(mode==="work")finishWork();else stopRest();}
+  else if(act==="worktime"){const row=b.closest(".srow"),ei=+row.dataset.e,si=+row.dataset.s;if(work&&work.ei===ei&&work.si===si)finishWork();else startWork(ei,si);}
   else if(act==="rest-start")startRest();
   else if(act==="rest-set"){const opts=[60,90,120,180];S.restSec=opts[(opts.indexOf(S.restSec)+1)%opts.length];save();render();}
   else if(act==="delhist")confirmSheet("Delete this workout?","It will be removed from History.","Delete",()=>{S.history=S.history.filter(w=>String(w.id)!==v);save();render();},true);
