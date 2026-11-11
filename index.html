@@ -375,6 +375,7 @@ const EX={
 
 
 const BW={wallsit:1,sidelying:1,pushup:1,slr:1,sideplank:1,deadbug:1};
+const SIDES={sideplank:1};
 const UNIT={wallsit:"sec",sideplank:"sec",carry:"steps",farmer:"steps"};
 const DEFAULTS=[
  {d:"Mon",title:"Lower A",focus:"Quads and hamstrings",how:"Alternate 1 & 2, then 3 & 4, then do 5. Rest 60–90 sec.",
@@ -446,7 +447,7 @@ function renderWorkout(){
   if(w.how)h+=`<p class="note">${esc(w.how)}</p>`;
   w.ex.forEach((e,ei)=>{
     const prev=prevFor(e.k), bw=BW[e.k];
-    h+=`<section class="card excard"><div class="exhead"><div class="grow"><div class="exname">${esc(EX[e.k].name)}</div><div class="extarget">Target ${e.sets.length} × ${esc(e.t)}${UNIT[e.k]==="sec"?" sec":UNIT[e.k]==="steps"?" steps":""}</div></div></div>
+    h+=`<section class="card excard"><div class="exhead"><div class="grow"><div class="exname">${esc(EX[e.k].name)}</div><div class="extarget">Target ${e.sets.length} × ${esc(e.t)}${UNIT[e.k]==="sec"?" sec":UNIT[e.k]==="steps"?" steps":""}${SIDES[e.k]?" per side":""}</div></div></div>
     <details class="how"><summary>${chev}How to do it</summary>${howTo(e.k)}</details>
     <div class="sets"><div class="srow head${UNIT[e.k]==="sec"?" timed":""}"><span>Set</span><span>Previous</span><span>${bw?"":"lbs"}</span><span>${unitLabel(e.k)}</span><span></span>${UNIT[e.k]==="sec"?"<span></span>":""}</div>
     ${e.sets.map((s,si)=>{const p=prev&&prev[si];const timed=UNIT[e.k]==="sec";return `<div class="srow${s.done?" done":""}${timed?" timed":""}" data-e="${ei}" data-s="${si}"><span class="snum">${si+1}</span><span class="prev">${setText(e.k,p)}</span>${bw?'<span class="bw">BW</span>':`<input inputmode="decimal" enterkeyhint="next" aria-label="Set ${si+1} weight in pounds" data-f="w" value="${esc(s.w)}" placeholder="${p&&p.w?esc(p.w):"lbs"}">`}<input inputmode="numeric" enterkeyhint="done" aria-label="Set ${si+1} ${unitLabel(e.k)}" data-f="r" value="${esc(s.r)}" placeholder="${p&&p.r?esc(p.r):esc(String(e.t).split(/[–\/ ]/)[0])}">${timed?`<button class="clock${work&&work.ei===ei&&work.si===si?" on":""}" type="button" data-act="worktime" aria-label="Start ${esc(String(e.t))} second timer for set ${si+1}">${clockSvg}</button>`:""}<button class="check" type="button" data-act="check" aria-label="Mark set ${si+1} done" aria-pressed="${!!s.done}">${checkSvg}</button></div>`;}).join("")}
@@ -510,14 +511,17 @@ function finishWorkout(){
   S.history.push(w);S.active=null;stopRest();save();view="history";render();window.scrollTo(0,0);toast("Workout saved");
 }
 let restEnd=0,restTotal=0,mode="rest",work=null,workStart=0;
-function setBar(){document.getElementById("timerLbl").textContent=mode==="work"?"Hold":"Rest";document.getElementById("timerSkip").textContent=mode==="work"?"Done":"Skip";}
-function startWork(ei,si){const e=S.active.ex[ei],s=e.sets[si];const row=document.querySelector(`.srow[data-e="${ei}"][data-s="${si}"]`);const inp=row&&row.querySelector('input[data-f="r"]');const secs=parseInt(s.r||(inp&&inp.placeholder)||String(e.t))||30;mode="work";work={ei,si};workStart=Date.now();restTotal=secs;restEnd=Date.now()+secs*1000;document.querySelectorAll(".clock.on").forEach(c=>c.classList.remove("on"));const c=row&&row.querySelector(".clock");if(c)c.classList.add("on");document.getElementById("rest").hidden=false;setBar();syncFab();tick();}
-function finishWork(){if(!work)return;const {ei,si}=work;const s=S.active.ex[ei].sets[si];const secs=Math.max(1,Math.round((Date.now()-workStart)/1000));s.r=String(Math.min(secs,Math.round(restTotal)));s.done=true;work=null;mode="rest";save();render();startRest();try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}
+function setBar(){const ph=work&&work.phase;document.getElementById("timerLbl").textContent=mode!=="work"?"Rest":ph==="sw"?"Switch sides":ph===1?"Hold · Side 1":ph===2?"Hold · Side 2":"Hold";document.getElementById("timerSkip").textContent=mode!=="work"?"Skip":ph==="sw"?"Go":ph===1?"Next":"Done";}
+function say(t){try{if(window.speechSynthesis){const u=new SpeechSynthesisUtterance(t);u.rate=1.05;speechSynthesis.cancel();speechSynthesis.speak(u);}}catch(e){}try{navigator.vibrate&&navigator.vibrate([150,80,150])}catch(e){}}
+function runPhase(sec){restTotal=sec;restEnd=Date.now()+sec*1000;setBar();tick();}
+function advanceWork(){if(!work)return;if(work.phase===1){work.held1=Math.max(1,Math.round((Date.now()-workStart)/1000));work.phase="sw";say("Switch");toast("Switch sides!");runPhase(5);}else if(work.phase==="sw"){work.phase=2;workStart=Date.now();say("Go");runPhase(work.secs);}else{finishWork();}}
+function startWork(ei,si){const e=S.active.ex[ei],s=e.sets[si];const row=document.querySelector(`.srow[data-e="${ei}"][data-s="${si}"]`);const inp=row&&row.querySelector('input[data-f="r"]');const secs=parseInt(s.r||(inp&&inp.placeholder)||String(e.t))||30;mode="work";work={ei,si,secs,phase:SIDES[e.k]?1:0};workStart=Date.now();restTotal=secs;restEnd=Date.now()+secs*1000;document.querySelectorAll(".clock.on").forEach(c=>c.classList.remove("on"));const c=row&&row.querySelector(".clock");if(c)c.classList.add("on");document.getElementById("rest").hidden=false;setBar();syncFab();tick();}
+function finishWork(){if(!work)return;const {ei,si}=work;const s=S.active.ex[ei].sets[si];const cur=Math.max(1,Math.round((Date.now()-workStart)/1000));const secs=work.held1?Math.min(work.held1,cur):cur;s.r=String(Math.min(secs,work.secs));s.done=true;work=null;mode="rest";save();render();startRest();try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}
 function startRest(){mode="rest";work=null;setBar();restTotal=S.restSec;restEnd=Date.now()+restTotal*1000;document.getElementById("rest").hidden=false;syncFab();tick();}
 function stopRest(){restEnd=0;mode="rest";work=null;document.querySelectorAll(".clock.on").forEach(c=>c.classList.remove("on"));document.getElementById("rest").hidden=true;syncFab();}
 function tick(){
   if(S.active){const t=fmtTime((Date.now()-S.active.start)/1000);["elapsed","elapsed2","tabTime"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=t;});}
-  if(restEnd){const left=(restEnd-Date.now())/1000;if(left<=0){if(mode==="work"){finishWork();toast("Time! Set checked off.");return;}stopRest();toast("Rest done. Next set!");try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}else{document.getElementById("restTime").textContent=fmtTime(left);document.getElementById("restProg").style.width=(100*left/restTotal)+"%";}}
+  if(restEnd){const left=(restEnd-Date.now())/1000;if(left<=0){if(mode==="work"){const last=!(work&&work.phase===1)&&!(work&&work.phase==="sw");advanceWork();if(last)toast("Time! Set checked off.");return;}stopRest();toast("Rest done. Next set!");try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}else{document.getElementById("restTime").textContent=fmtTime(left);document.getElementById("restProg").style.width=(100*left/restTotal)+"%";}}
 }
 setInterval(tick,1000);
 function updateStats(){const w=S.active;if(!w)return;const {v,n}=volume(w);const a=document.getElementById("vol"),b=document.getElementById("setsDone");if(a)a.textContent=v.toLocaleString()+" lb";if(b)b.textContent=n;}
@@ -548,8 +552,8 @@ document.addEventListener("click",ev=>{
   else if(act==="finish")confirmSheet("Finish workout?","Your checked sets will be saved to History.","Finish",finishWorkout);
   else if(act==="discard")confirmSheet("Discard workout?","Nothing from this session will be saved.","Discard",()=>{S.active=null;stopRest();save();view="plan";render();},true);
   else if(act==="rest-adj"){if(restEnd){restEnd+=(+v)*1000;restTotal=Math.max(restTotal,(restEnd-Date.now())/1000);tick();}}
-  else if(act==="rest-skip"){if(mode==="work")finishWork();else stopRest();}
-  else if(act==="worktime"){const row=b.closest(".srow"),ei=+row.dataset.e,si=+row.dataset.s;if(work&&work.ei===ei&&work.si===si)finishWork();else startWork(ei,si);}
+  else if(act==="rest-skip"){if(mode==="work")advanceWork();else stopRest();}
+  else if(act==="worktime"){const row=b.closest(".srow"),ei=+row.dataset.e,si=+row.dataset.s;if(work&&work.ei===ei&&work.si===si)advanceWork();else startWork(ei,si);}
   else if(act==="rest-start")startRest();
   else if(act==="rest-set"){const opts=[60,90,120,180];S.restSec=opts[(opts.indexOf(S.restSec)+1)%opts.length];save();render();}
   else if(act==="delhist")confirmSheet("Delete this workout?","It will be removed from History.","Delete",()=>{S.history=S.history.filter(w=>String(w.id)!==v);save();render();},true);
