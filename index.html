@@ -120,6 +120,12 @@ details[open]>summary .chev{transform:rotate(90deg)}
 .srow.head>*{text-align:center}
 .srow.head>:nth-child(2){text-align:left}
 .srow.done{background:var(--accent-soft)}
+.srow.active{box-shadow:inset 0 0 0 2px var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.srow.active .snum{background:var(--accent);color:#fff}
+.sheet .nextup{background:var(--fill);border-radius:16px;padding:12px 14px}
+.sheet .nextup span{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.sheet .nextup b{font-size:17px;letter-spacing:-.02em}
+.sheet .nextup small{display:block;color:var(--muted);font-size:14px;margin-top:2px}
 .srow.timed{grid-template-columns:30px minmax(0,1.2fr) minmax(0,.6fr) minmax(0,1fr) 40px 40px;gap:5px}
 .clock{width:38px;height:38px;border-radius:12px;border:0;background:var(--select-soft);display:grid;place-items:center;margin:0 auto;color:var(--ink);transition:transform .14s cubic-bezier(.22,1,.36,1),background .18s}
 .clock:active{transform:scale(.9)}
@@ -173,7 +179,11 @@ select.add{width:100%;height:44px;border:0;border-radius:14px;background:var(--f
 .restbar[hidden],.restfab[hidden]{display:none}
 .restfab{position:fixed;z-index:19;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 80px);min-height:52px;padding:0 26px;border-radius:999px;border:0;background:var(--accent);color:#fff;font-size:17px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;box-shadow:0 10px 30px color-mix(in srgb,var(--accent) 35%,transparent)}
 .restfab:active{transform:translateX(-50%) scale(.96)}
-.restfab span{font-weight:600;opacity:.85;font-variant-numeric:tabular-nums}
+.restfab{max-width:calc(100% - 32px);padding:6px 24px 6px 18px;min-height:56px}
+.restfab .ft{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;text-align:left;min-width:0}
+.restfab .ft b{font-size:17px;font-weight:700;white-space:nowrap}
+.restfab .ft small{font-size:12px;font-weight:600;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62vw}
+.restfab svg{flex:none}
 .restbar .lbl{flex:1;font-size:13px;font-weight:650;color:var(--muted)}
 .restbar .lbl b{display:block;font-size:22px;color:var(--ink);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .restbar .prog{position:absolute;left:0;bottom:0;height:3px;background:var(--accent);transition:width 1s linear}
@@ -199,7 +209,7 @@ select.add{width:100%;height:44px;border:0;border-radius:14px;background:var(--f
   <button class="btn small primary" type="button" data-act="rest-skip" id="timerSkip">Skip</button>
   <div class="prog" id="restProg"></div>
 </div>
-<button class="restfab" id="restFab" type="button" data-act="rest-start" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg>Rest <span id="restFabTime">1:00</span></button>
+<button class="restfab" id="restFab" type="button" data-act="rest-start" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg><span class="ft"><b id="restFabMain">Done &amp; Rest 1:00</b><small id="restFabSub"></small></span></button>
 <nav class="tabbar glassbtn" id="tabs" role="tablist" aria-label="Sections"></nav>
 <div class="modal" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="toast glassbtn" id="toast" hidden></div>
@@ -450,7 +460,7 @@ function renderWorkout(){
     h+=`<section class="card excard"><div class="exhead"><div class="grow"><div class="exname">${esc(EX[e.k].name)}</div><div class="extarget">Target ${e.sets.length} × ${esc(e.t)}${UNIT[e.k]==="sec"?" sec":UNIT[e.k]==="steps"?" steps":""}${SIDES[e.k]?" per side":""}</div></div></div>
     <details class="how"><summary>${chev}How to do it</summary>${howTo(e.k)}</details>
     <div class="sets"><div class="srow head${UNIT[e.k]==="sec"?" timed":""}"><span>Set</span><span>Previous</span><span>${bw?"":"lbs"}</span><span>${unitLabel(e.k)}</span><span></span>${UNIT[e.k]==="sec"?"<span></span>":""}</div>
-    ${e.sets.map((s,si)=>{const p=prev&&prev[si];const timed=UNIT[e.k]==="sec";return `<div class="srow${s.done?" done":""}${timed?" timed":""}" data-e="${ei}" data-s="${si}"><span class="snum">${si+1}</span><span class="prev">${setText(e.k,p)}</span>${bw?'<span class="bw">BW</span>':`<input inputmode="decimal" enterkeyhint="next" aria-label="Set ${si+1} weight in pounds" data-f="w" value="${esc(s.w)}" placeholder="${p&&p.w?esc(p.w):"lbs"}">`}<input inputmode="numeric" enterkeyhint="done" aria-label="Set ${si+1} ${unitLabel(e.k)}" data-f="r" value="${esc(s.r)}" placeholder="${p&&p.r?esc(p.r):esc(String(e.t).split(/[–\/ ]/)[0])}">${timed?`<button class="clock${work&&work.ei===ei&&work.si===si?" on":""}" type="button" data-act="worktime" aria-label="Start ${esc(String(e.t))} second timer for set ${si+1}">${clockSvg}</button>`:""}<button class="check" type="button" data-act="check" aria-label="Mark set ${si+1} done" aria-pressed="${!!s.done}">${checkSvg}</button></div>`;}).join("")}
+    ${e.sets.map((s,si)=>{const p=prev&&prev[si];const timed=UNIT[e.k]==="sec";const act=w.cur&&w.cur.ei===ei&&w.cur.si===si&&!s.done;return `<div class="srow${s.done?" done":""}${timed?" timed":""}${act?" active":""}" data-e="${ei}" data-s="${si}"><span class="snum">${si+1}</span><span class="prev">${setText(e.k,p)}</span>${bw?'<span class="bw">BW</span>':`<input inputmode="decimal" enterkeyhint="next" aria-label="Set ${si+1} weight in pounds" data-f="w" value="${esc(s.w)}" placeholder="${p&&p.w?esc(p.w):"lbs"}">`}<input inputmode="numeric" enterkeyhint="done" aria-label="Set ${si+1} ${unitLabel(e.k)}" data-f="r" value="${esc(s.r)}" placeholder="${p&&p.r?esc(p.r):esc(String(e.t).split(/[–\/ ]/)[0])}">${timed?`<button class="clock${work&&work.ei===ei&&work.si===si?" on":""}" type="button" data-act="worktime" aria-label="Start ${esc(String(e.t))} second timer for set ${si+1}">${clockSvg}</button>`:""}<button class="check" type="button" data-act="check" aria-label="Mark set ${si+1} done" aria-pressed="${!!s.done}">${checkSvg}</button></div>`;}).join("")}
     </div><div class="setbtns"><button class="btn small" type="button" data-act="addset" data-v="${ei}">+ Add Set</button>${e.sets.length>1?`<button class="btn small ghost" type="button" data-act="rmset" data-v="${ei}">Remove Set</button>`:""}</div></section>`;
   });
   h+=`<p class="sectionhead">Notes</p><textarea id="notes" placeholder="How did it feel? Anything to change next time?">${esc(w.notes||"")}</textarea>`;
@@ -470,7 +480,14 @@ function renderHistory(){
   h+=`<p class="sectionhead">Backup</p><section class="card routine"><p class="rmeta">Logs live on this device. Copy a backup to save it somewhere, or paste one to restore it on another phone.</p><div class="ractions"><button class="btn" type="button" data-act="backup">Copy Backup</button><button class="btn" type="button" data-act="restore">Restore</button></div><button class="btn small ghost" type="button" data-act="rest-set">Rest timer: ${S.restSec} sec</button></section>`;
   app.innerHTML=h;
 }
-function syncFab(){const f=document.getElementById("restFab");f.hidden=!(view==="workout"&&S.active&&!restEnd);document.getElementById("restFabTime").textContent=fmtTime(S.restSec);}
+function nextSet(){const w=S.active;if(!w)return null;for(let ei=0;ei<w.ex.length;ei++)for(let si=0;si<w.ex[ei].sets.length;si++)if(!w.ex[ei].sets[si].done)return {ei,si};return null;}
+function curSet(){const w=S.active;if(!w||!w.cur)return null;const e=w.ex[w.cur.ei],st=e&&e.sets[w.cur.si];return st&&!st.done?w.cur:null;}
+function syncFab(){const f=document.getElementById("restFab");f.hidden=!(view==="workout"&&S.active&&!restEnd);if(f.hidden)return;const c=curSet(),n=c||nextSet(),m=document.getElementById("restFabMain"),sub=document.getElementById("restFabSub");
+  if(!n){m.textContent="Finish Workout";sub.textContent="All sets done";return;}
+  const e=S.active.ex[n.ei],nm=`${EX[e.k].name} · Set ${n.si+1}`;
+  if(c){m.textContent=`Done & Rest ${fmtTime(S.restSec)}`;sub.textContent="In progress: "+nm;}
+  else if(UNIT[e.k]==="sec"){m.textContent=SIDES[e.k]?"Start Timer (both sides)":"Start Timer";sub.textContent="Up next: "+nm;}
+  else{m.textContent="Start Set";sub.textContent="Up next: "+nm;}}
 function render(){renderTabs();syncFab(); if(view==="plan")renderPlan(); else if(view==="workout")renderWorkout(); else renderHistory();}
 
 /* ---------- sheets ---------- */
@@ -515,16 +532,46 @@ function setBar(){const ph=work&&work.phase;document.getElementById("timerLbl").
 function say(t){try{if(window.speechSynthesis){const u=new SpeechSynthesisUtterance(t);u.rate=1.05;speechSynthesis.cancel();speechSynthesis.speak(u);}}catch(e){}try{navigator.vibrate&&navigator.vibrate([150,80,150])}catch(e){}}
 function runPhase(sec){restTotal=sec;restEnd=Date.now()+sec*1000;setBar();tick();}
 function advanceWork(){if(!work)return;if(work.phase===1){work.held1=Math.max(1,Math.round((Date.now()-workStart)/1000));work.phase="sw";say("Switch");toast("Switch sides!");runPhase(5);}else if(work.phase==="sw"){work.phase=2;workStart=Date.now();say("Go");runPhase(work.secs);}else{finishWork();}}
-function startWork(ei,si){const e=S.active.ex[ei],s=e.sets[si];const row=document.querySelector(`.srow[data-e="${ei}"][data-s="${si}"]`);const inp=row&&row.querySelector('input[data-f="r"]');const secs=parseInt(s.r||(inp&&inp.placeholder)||String(e.t))||30;mode="work";work={ei,si,secs,phase:SIDES[e.k]?1:0};workStart=Date.now();restTotal=secs;restEnd=Date.now()+secs*1000;document.querySelectorAll(".clock.on").forEach(c=>c.classList.remove("on"));const c=row&&row.querySelector(".clock");if(c)c.classList.add("on");document.getElementById("rest").hidden=false;setBar();syncFab();tick();}
-function finishWork(){if(!work)return;const {ei,si}=work;const s=S.active.ex[ei].sets[si];const cur=Math.max(1,Math.round((Date.now()-workStart)/1000));const secs=work.held1?Math.min(work.held1,cur):cur;s.r=String(Math.min(secs,work.secs));s.done=true;work=null;mode="rest";save();render();startRest();try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}
+function startWork(ei,si){const e=S.active.ex[ei],s=e.sets[si];const row=document.querySelector(`.srow[data-e="${ei}"][data-s="${si}"]`);const inp=row&&row.querySelector('input[data-f="r"]');const secs=parseInt(s.r||(inp&&inp.placeholder)||String(e.t))||30;mode="work";work={ei,si,secs,phase:SIDES[e.k]?1:0};S.active.cur={ei,si};workStart=Date.now();restTotal=secs;restEnd=Date.now()+secs*1000;document.querySelectorAll(".clock.on").forEach(c=>c.classList.remove("on"));const c=row&&row.querySelector(".clock");if(c)c.classList.add("on");document.getElementById("rest").hidden=false;setBar();syncFab();tick();}
+function finishWork(){if(!work)return;const {ei,si}=work;const s=S.active.ex[ei].sets[si];const cur=Math.max(1,Math.round((Date.now()-workStart)/1000));const secs=work.held1?Math.min(work.held1,cur):cur;s.r=String(Math.min(secs,work.secs));s.done=true;S.active.cur=null;work=null;mode="rest";save();render();startRest();try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}
 function startRest(){mode="rest";work=null;setBar();restTotal=S.restSec;restEnd=Date.now()+restTotal*1000;document.getElementById("rest").hidden=false;syncFab();tick();}
 function stopRest(){restEnd=0;mode="rest";work=null;document.querySelectorAll(".clock.on").forEach(c=>c.classList.remove("on"));document.getElementById("rest").hidden=true;syncFab();}
 function tick(){
   if(S.active){const t=fmtTime((Date.now()-S.active.start)/1000);["elapsed","elapsed2","tabTime"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=t;});}
-  if(restEnd){const left=(restEnd-Date.now())/1000;if(left<=0){if(mode==="work"){const last=!(work&&work.phase===1)&&!(work&&work.phase==="sw");advanceWork();if(last)toast("Time! Set checked off.");return;}stopRest();toast("Rest done. Next set!");try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}else{document.getElementById("restTime").textContent=fmtTime(left);document.getElementById("restProg").style.width=(100*left/restTotal)+"%";}}
+  if(restEnd){const left=(restEnd-Date.now())/1000;if(left<=0){if(mode==="work"){const last=!(work&&work.phase===1)&&!(work&&work.phase==="sw");advanceWork();if(last)toast("Time! Set checked off.");return;}stopRest();restDone();try{navigator.vibrate&&navigator.vibrate(200)}catch(e){}}else{document.getElementById("restTime").textContent=fmtTime(left);document.getElementById("restProg").style.width=(100*left/restTotal)+"%";}}
 }
 setInterval(tick,1000);
-function updateStats(){const w=S.active;if(!w)return;const {v,n}=volume(w);const a=document.getElementById("vol"),b=document.getElementById("setsDone");if(a)a.textContent=v.toLocaleString()+" lb";if(b)b.textContent=n;}
+function checkSet(row){
+    const b=row.querySelector(".check"),e=S.active.ex[+row.dataset.e],s=e.sets[+row.dataset.s];
+    if(work&&work.ei===+row.dataset.e&&work.si===+row.dataset.s){const secs=Math.max(1,Math.round((Date.now()-workStart)/1000));if(!s.r)s.r=String(secs);const ri=row.querySelector('input[data-f="r"]');if(ri&&!ri.value)ri.value=s.r;stopRest();}
+    if(!s.done){row.querySelectorAll("input").forEach(inp=>{if(!inp.value&&inp.placeholder&&/^[\d.]+$/.test(inp.placeholder)){inp.value=inp.placeholder;s[inp.dataset.f]=inp.placeholder;}});}
+    s.done=!s.done;row.classList.toggle("done",s.done);b.setAttribute("aria-pressed",s.done);
+    if(s.done){row.classList.remove("active");if(S.active.cur&&S.active.cur.ei===+row.dataset.e&&S.active.cur.si===+row.dataset.s)S.active.cur=null;}
+    save();updateStats();
+    if(s.done)startRest();else syncFab();
+}
+function rowOf(n){return document.querySelector(`.srow[data-e="${n.ei}"][data-s="${n.si}"]`);}
+function startNext(){
+  const n=nextSet();
+  if(!n){confirmSheet("Finish workout?","Every set is checked. Save this workout to History?","Finish",finishWorkout);return;}
+  if(UNIT[S.active.ex[n.ei].k]==="sec"){startWork(n.ei,n.si);}
+  else{S.active.cur={ei:n.ei,si:n.si};save();document.querySelectorAll(".srow.active").forEach(r=>r.classList.remove("active"));const r=rowOf(n);if(r)r.classList.add("active");syncFab();}
+  const r=rowOf(n);try{r&&r.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}
+}
+function oneButton(){
+  const c=curSet();
+  if(c){const r=rowOf(c);if(r)checkSet(r);return;}
+  startNext();
+}
+function restDone(){
+  if(!S.active)return;say("Rest done");
+  const n=nextSet();
+  if(!n){openSheet(`<h2>Rest's over</h2><p>That was the last set.</p><div class="row"><button class="btn" type="button" data-act="sheet-cancel">Close</button><button class="btn primary" type="button" data-act="next-set">Finish Workout</button></div>`);return;}
+  const e=S.active.ex[n.ei],st=e.sets[n.si],prev=prevFor(e.k),last=n.si>0?e.sets[n.si-1]:null,p=(prev&&prev[n.si])||(last&&last.done?last:null),timed=UNIT[e.k]==="sec";
+  const hint=timed?`${esc(st.r||(p&&p.r)||String(e.t))} sec${SIDES[e.k]?" per side":""} · timer starts right away`:`${!BW[e.k]&&(st.w||(p&&p.w))?esc(st.w||p.w)+" lb × ":""}${esc(st.r||(p&&p.r)||e.t)} ${UNIT[e.k]==="steps"?"steps":"reps"}`;
+  openSheet(`<h2>Rest's over</h2><div class="nextup"><span>Up next</span><b>${esc(EX[e.k].name)} · Set ${n.si+1}</b><small>${hint}</small></div><div class="row"><button class="btn" type="button" data-act="sheet-cancel">Close</button><button class="btn primary" type="button" data-act="next-set">${timed?"Start Timer":"Start Next Set"}</button></div>`);
+}
+function updateStats(){const w=S.active;if(!w)return;syncFab();const {v,n}=volume(w);const a=document.getElementById("vol"),b=document.getElementById("setsDone");if(a)a.textContent=v.toLocaleString()+" lb";if(b)b.textContent=n;}
 
 /* ---------- events ---------- */
 document.addEventListener("click",ev=>{
@@ -540,13 +587,7 @@ document.addEventListener("click",ev=>{
   else if(act==="ed-done"){closeSheet();render();}
   else if(act==="sheet-cancel")closeSheet();
   else if(act==="sheet-ok"){const f=sheetOk;closeSheet();f&&f();}
-  else if(act==="check"){
-    const row=b.closest(".srow"),e=S.active.ex[+row.dataset.e],s=e.sets[+row.dataset.s];
-    if(work&&work.ei===+row.dataset.e&&work.si===+row.dataset.s){const secs=Math.max(1,Math.round((Date.now()-workStart)/1000));if(!s.r)s.r=String(secs);const ri=row.querySelector('input[data-f="r"]');if(ri&&!ri.value)ri.value=s.r;stopRest();}
-    if(!s.done){row.querySelectorAll("input").forEach(inp=>{if(!inp.value&&inp.placeholder&&/^[\d.]+$/.test(inp.placeholder)){inp.value=inp.placeholder;s[inp.dataset.f]=inp.placeholder;}});}
-    s.done=!s.done;row.classList.toggle("done",s.done);b.setAttribute("aria-pressed",s.done);save();updateStats();
-    if(s.done)startRest();
-  }
+  else if(act==="check"){checkSet(b.closest(".srow"));}
   else if(act==="addset"){const e=S.active.ex[+v],last=e.sets[e.sets.length-1]||{};e.sets.push({w:last.w||"",r:last.r||"",done:false});save();render();}
   else if(act==="rmset"){const e=S.active.ex[+v];if(e.sets.length>1)e.sets.pop();save();render();}
   else if(act==="finish")confirmSheet("Finish workout?","Your checked sets will be saved to History.","Finish",finishWorkout);
@@ -554,7 +595,8 @@ document.addEventListener("click",ev=>{
   else if(act==="rest-adj"){if(restEnd){restEnd+=(+v)*1000;restTotal=Math.max(restTotal,(restEnd-Date.now())/1000);tick();}}
   else if(act==="rest-skip"){if(mode==="work")advanceWork();else stopRest();}
   else if(act==="worktime"){const row=b.closest(".srow"),ei=+row.dataset.e,si=+row.dataset.s;if(work&&work.ei===ei&&work.si===si)advanceWork();else startWork(ei,si);}
-  else if(act==="rest-start")startRest();
+  else if(act==="rest-start")oneButton();
+  else if(act==="next-set"){closeSheet();startNext();}
   else if(act==="rest-set"){const opts=[60,90,120,180];S.restSec=opts[(opts.indexOf(S.restSec)+1)%opts.length];save();render();}
   else if(act==="delhist")confirmSheet("Delete this workout?","It will be removed from History.","Delete",()=>{S.history=S.history.filter(w=>String(w.id)!==v);save();render();},true);
   else if(act==="backup"){const txt=JSON.stringify(S);(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("Backup copied"),()=>{openSheet(`<h2>Your backup</h2><p>Select all and copy this text.</p><textarea readonly style="min-height:160px">${esc(txt)}</textarea><button class="btn primary" type="button" data-act="sheet-cancel">Done</button>`);});}
@@ -568,6 +610,12 @@ document.addEventListener("input",ev=>{
   else if(t.dataset.act==="ed-target"){S.routines[editIdx].ex[+t.dataset.v].t=t.value;save();}
 });
 document.addEventListener("keydown",ev=>{if(ev.key==="Escape"&&!modal.hidden)closeSheet();});
+/* keep the screen awake while the app is open */
+let wakeLock=null;
+async function keepAwake(){try{if("wakeLock" in navigator&&document.visibilityState==="visible"&&!wakeLock){wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>{wakeLock=null;});}}catch(e){wakeLock=null;}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")keepAwake();});
+["click","touchend"].forEach(t=>document.addEventListener(t,()=>{if(!wakeLock)keepAwake();},{passive:true}));
+keepAwake();
 render();
 })();
 </script>
